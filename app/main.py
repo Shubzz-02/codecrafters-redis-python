@@ -9,7 +9,12 @@ def main():
     # Uncomment this to pass the first stage
     #
     server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
-    server_socket.accept() # wait for client
+    c, addr = server_socket.accept()  # wait for client
+
+    while True:
+        data = c.recv(1024).decode("utf-8")
+        if "ping" in data:
+            c.send("+PONG\r\n".encode())
 
 
 if __name__ == "__main__":
