@@ -15,6 +15,8 @@ def main():
         data = c.recv(1024).decode("utf-8")
         if "ping" in data:
             c.send("+PONG\r\n".encode())
+        else:
+            c.send("-ERR unknown command\r\n".encode())
 
 
 if __name__ == "__main__":
