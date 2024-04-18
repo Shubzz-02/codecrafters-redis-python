@@ -1,14 +1,10 @@
 # Uncomment this to pass the first stage
 import socket
+from RedisProtocolParser import parse_protocol
 from threading import Thread
 
 
 def main():
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!")
-
-    # Uncomment this to pass the first stage
-    #
     server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
 
     while True:
@@ -20,9 +16,12 @@ def main():
 def handle_client(client_sock):
     while True:
         data = client_sock.recv(1024).decode("utf-8")
-
-        if 'ping' in data:
+        parsed_data, remaining_data = parse_protocol(data)
+        if parsed_data[0].caseFold() == 'ping':
             resp = '+PONG\r\n'
+            client_sock.sendall(resp.encode("utf-8"))
+        elif parsed_data[0].caseFold() == 'echo':
+            resp = f'${len(parsed_data[1])}\r\n{parsed_data[1]}\r\n'
             client_sock.sendall(resp.encode("utf-8"))
 
 
