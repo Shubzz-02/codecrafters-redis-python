@@ -17,11 +17,14 @@ def handle_client(client_sock):
     while True:
         data = client_sock.recv(1024).decode("utf-8")
         parsed_data, remaining_data = parse_protocol(data)
-        if parsed_data[0].caseFold() == 'ping':
+        if parsed_data[0].lower() == 'ping':
             resp = '+PONG\r\n'
             client_sock.sendall(resp.encode("utf-8"))
-        elif parsed_data[0].caseFold() == 'echo':
+        elif parsed_data[0].lower() == 'echo':
             resp = f'${len(parsed_data[1])}\r\n{parsed_data[1]}\r\n'
+            client_sock.sendall(resp.encode("utf-8"))
+        else:
+            resp = '+skkep\r\n'
             client_sock.sendall(resp.encode("utf-8"))
 
 

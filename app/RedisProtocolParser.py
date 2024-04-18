@@ -1,3 +1,15 @@
+def parse_protocol(data):
+    if not data:
+        return None
+
+    marker = data[0]
+    parser = ProtocolParserFactory.create_parser(marker)
+    if parser:
+        return parser.parse(data[1:])
+    else:
+        raise ValueError("Invalid marker: {}".format(marker))
+
+
 class RedisProtocolParser:
     def parse(self, data):
         raise NotImplementedError("Subclasses must implement parse method")
@@ -63,15 +75,3 @@ class ProtocolParserFactory:
             '%': MapParser(),
         }
         return parsers.get(marker, None)
-
-
-def parse_protocol(data):
-    if not data:
-        return None
-
-    marker = data[0]
-    parser = ProtocolParserFactory.create_parser(marker)
-    if parser:
-        return parser.parse(data[1:])
-    else:
-        raise ValueError("Invalid marker: {}".format(marker))
