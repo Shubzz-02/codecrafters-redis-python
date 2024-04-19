@@ -59,13 +59,10 @@ def connect_to_master_server(server_config):
             f'*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n${len(str(server_config.port_number))}\r\n{server_config.port_number}\r\n'
             .encode("utf-8"))
         response = master_socket.recv(1024).decode("utf-8")
-        print(response)
         master_socket.sendall(f'*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n'.encode("utf-8"))
         response = master_socket.recv(1024).decode("utf-8")
-        print(response)
         master_socket.sendall("*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n".encode("utf-8"))
         response = master_socket.recv(1024).decode("utf-8")
-        print(response)
     # master_socket.sendall(f'REPLCONF capa psync2\r\n'.encode("utf-8"))
     # master_socket.sendall(f'PSYNC {server_config.master_replid} {server_config.master_repl_offset}\r\n'.encode("utf-8"))
     # response = master_socket.recv(1024).decode("utf-8")
