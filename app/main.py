@@ -3,12 +3,13 @@ import socket
 from app.RedisProtocolParser import parse_protocol
 from app.CustomDictionary import TTLDictionary
 from threading import Thread
+import sys
 
 ttl_dict = TTLDictionary()
 
 
-def main():
-    server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
+def main(port=6379):
+    server_socket = socket.create_server(("localhost", port), reuse_port=True)
 
     while True:
         client_sock = server_socket.accept()[0]
@@ -53,4 +54,9 @@ def handle_client(client_sock):
 
 
 if __name__ == "__main__":
-    main()
+    if '--port' in sys.argv:
+        port_index = sys.argv.index('--port')
+        port_number = int(sys.argv[port_index + 1])
+        main(port_number)
+    else:
+        main()
