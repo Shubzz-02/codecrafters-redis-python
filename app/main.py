@@ -6,10 +6,12 @@ from threading import Thread
 import sys
 
 ttl_dict = TTLDictionary()
+port_number = 6379
+replica = 'master'
 
 
-def main(port=6379):
-    server_socket = socket.create_server(("localhost", port), reuse_port=True)
+def main():
+    server_socket = socket.create_server(("localhost", port_number), reuse_port=True)
 
     while True:
         client_sock = server_socket.accept()[0]
@@ -49,7 +51,7 @@ def handle_client(client_sock):
                 resp = '$-1\r\n'
             client_sock.sendall(resp.encode("utf-8"))
         elif parsed_data[0].lower() == 'info':
-            info = "role:master"
+            info = f'role:{replica}'
             resp = f'${len(info)}\r\n{info}\r\n'
             client_sock.sendall(resp.encode("utf-8"))
         else:
@@ -58,9 +60,10 @@ def handle_client(client_sock):
 
 
 if __name__ == "__main__":
-    if '--port' in sys.argv:
+    if '--port' in sys.argv or '-p' in sys.argv:
         port_index = sys.argv.index('--port')
         port_number = int(sys.argv[port_index + 1])
-        main(port_number)
-    else:
-        main()
+    if '--replicaof' in sys.argv:
+        replica_index = sys.argv.index('--replicaof')
+        replica = 'slave'
+    main()
