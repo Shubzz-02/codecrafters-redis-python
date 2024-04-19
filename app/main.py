@@ -13,6 +13,8 @@ class ServerConfig:
         self.replica = 'master'
         self.master_replid = self.generate_random_string(40)
         self.master_repl_offset = 0
+        self.master_host = 'localhost'
+        self.master_port = 6379
 
     @staticmethod
     def generate_random_string(length):
@@ -27,15 +29,42 @@ config = ServerConfig()
 
 def main(server_config):
     server_socket = socket.create_server(("localhost", server_config.port_number), reuse_port=True)
+    if server_config.replica == 'slave':
+        connect_to_master_server(server_config)
     while True:
         client_sock = server_socket.accept()[0]
         thread = Thread(target=handle_client, args=(client_sock, server_config))
         thread.start()
 
 
+# create a function to connect to a specified server ip and port using socket.create_connection() and receive the
+# response and print
+def connect_to_master_server(server_config):
+    master_socket = socket.create_connection((server_config.master_host, server_config.master_port))
+    master_socket.sendall(f'*1\r\n$4\r\nping\r\n'.encode("utf-8"))
+    response = master_socket.recv(1024).decode("utf-8")
+    if response != '+PONG\r\n':
+        print('Master server is not responding')
+        exit(1)
+    else:
+        print('Successfully connected to master server')
+    # master_socket.sendall(f'REPLCONF listening-port {server_config.port_number}\r\n'.encode("utf-8"))
+    # master_socket.sendall(f'REPLCONF capa eof\r\n'.encode("utf-8"))
+    # master_socket.sendall(f'REPLCONF capa psync2\r\n'.encode("utf-8"))
+    # master_socket.sendall(f'PSYNC {server_config.master_replid} {server_config.master_repl_offset}\r\n'.encode("utf-8"))
+    # response = master_socket.recv(1024).decode("utf-8")
+    # if response.startswith('+FULLRESYNC'):
+    #     response = response.split('\r\n')
+    #     server_config.master_replid = response[1]
+    #     server_config.master_repl_offset = int(response[2])
+    # master_socket.close()
+
+
 def handle_client(client_sock, server_config):
     while True:
         data = client_sock.recv(1024).decode("utf-8")
+        if not data:
+            continue
         parsed_data, remaining_data = parse_protocol(data)
         response = process_command(parsed_data, server_config)
         client_sock.sendall(response.encode("utf-8"))
@@ -98,4 +127,6 @@ if __name__ == "__main__":
     if '--replicaof' in sys.argv:
         replica_index = sys.argv.index('--replicaof')
         config.replica = 'slave'
+        config.master_host = sys.argv[replica_index + 1]
+        config.master_port = int(sys.argv[replica_index + 2])
     main(config)
