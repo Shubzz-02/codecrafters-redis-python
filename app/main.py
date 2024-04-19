@@ -108,7 +108,7 @@ def process_command(parsed_data, server_config, client_sock):
 
 def handle_psync_command(parsed_data, server_config):
     if parsed_data[1] == '?':
-        return f'+{server_config.master_replid} {server_config.master_repl_offset}\r\n'
+        return f'+FULLRESYNC {server_config.master_replid} {server_config.master_repl_offset}\r\n'
     else:
         return '+skip\r\n'
 
