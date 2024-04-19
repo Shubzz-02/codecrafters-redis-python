@@ -1,6 +1,6 @@
 # Uncomment this to pass the first stage
 import socket
-from RedisProtocolParser import parse_protocol
+from app.RedisProtocolParser import parse_protocol
 from threading import Thread
 
 
