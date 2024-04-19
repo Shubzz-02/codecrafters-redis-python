@@ -1,4 +1,3 @@
-# Uncomment this to pass the first stage
 import socket
 from app.RedisProtocolParser import parse_protocol
 from app.CustomDictionary import TTLDictionary
@@ -8,84 +7,95 @@ import random
 import string
 
 
-def main():
-    server_socket = socket.create_server(("localhost", port_number), reuse_port=True)
+class ServerConfig:
+    def __init__(self):
+        self.port_number = 6379
+        self.replica = 'master'
+        self.master_replid = self.generate_random_string(40)
+        self.master_repl_offset = 0
 
+    @staticmethod
+    def generate_random_string(length):
+        characters = string.ascii_letters + string.digits
+        random_string = ''.join(random.choice(characters) for _ in range(length))
+        return random_string
+
+
+expiration_dictionary = TTLDictionary()
+config = ServerConfig()
+
+
+def main(server_config):
+    server_socket = socket.create_server(("localhost", server_config.port_number), reuse_port=True)
     while True:
         client_sock = server_socket.accept()[0]
-        thread = Thread(target=handle_client, args=(client_sock,))
+        thread = Thread(target=handle_client, args=(client_sock, server_config))
         thread.start()
 
 
-def handle_client(client_sock):
+def handle_client(client_sock, server_config):
     while True:
         data = client_sock.recv(1024).decode("utf-8")
         parsed_data, remaining_data = parse_protocol(data)
-        if parsed_data[0].lower() == 'ping':
-            resp = '+PONG\r\n'
-            client_sock.sendall(resp.encode("utf-8"))
-        elif parsed_data[0].lower() == 'echo':
-            resp = f'${len(parsed_data[1])}\r\n{parsed_data[1]}\r\n'
-            client_sock.sendall(resp.encode("utf-8"))
-        elif parsed_data[0].lower() == 'set':
-            arr_len = len(parsed_data)
-            if arr_len < 3:
-                resp = '-ERR wrong number of arguments for \'set\' command\r\n'
-                client_sock.sendall(resp.encode("utf-8"))
-                continue
-            elif arr_len == 3:
-                ttl_dict.set(parsed_data[1], parsed_data[2], None)
-                resp = '+OK\r\n'
-                client_sock.sendall(resp.encode("utf-8"))
-            elif arr_len == 5:
-                ttl_dict.set(parsed_data[1], parsed_data[2], parsed_data[4])
-                resp = '+OK\r\n'
-                client_sock.sendall(resp.encode("utf-8"))
-        elif parsed_data[0].lower() == 'get':
-            value = ttl_dict.get(parsed_data[1])
-            if value:
-                resp = f'${len(value)}\r\n{value}\r\n'
-            else:
-                resp = '$-1\r\n'
-            client_sock.sendall(resp.encode("utf-8"))
-        elif parsed_data[0].lower() == 'info':
-            data = f'role:{replica}\nmaster_replid:{master_replid}\nmaster_repl_offset:{master_repl_offset}\n'
-            resp = f'${len(data)}\r\n{data}\r\n'
-            client_sock.sendall(resp.encode("utf-8"))
-            # info_replica = f'role:{replica}'
-            # info_replid = f'master_replid:{master_replid}'
-            # info_offset = f'master_repl_offset:{master_repl_offset}'
-            # info = [f'${len(info_replica)}\r\n{info_replica}\r\n', f'${len(info_replid)}\r\n{info_replid}\r\n',
-            #         f'${len(info_offset)}\r\n{info_offset}\r\n']
-            # resp = f'*{len(info)}\r\n'
-            # for i in info:
-            #     resp += i
-        else:
-            resp = '+skkep\r\n'
-            client_sock.sendall(resp.encode("utf-8"))
+        response = process_command(parsed_data, server_config)
+        client_sock.sendall(response.encode("utf-8"))
 
 
-def generate_random_string(length):
-    # Define the characters to choose from
-    characters = string.ascii_letters + string.digits
+def process_command(parsed_data, server_config):
+    command = parsed_data[0].lower()
+    if command == 'ping':
+        return '+PONG\r\n'
+    elif command == 'echo':
+        return f'${len(parsed_data[1])}\r\n{parsed_data[1]}\r\n'
+    elif command == 'set':
+        return handle_set_command(parsed_data)
+    elif command == 'get':
+        return handle_get_command(parsed_data)
+    elif command == 'info':
+        return handle_info_command(server_config)
+    else:
+        return '+skip\r\n'
 
-    # Generate a random string
-    random_string = ''.join(random.choice(characters) for _ in range(length))
 
-    return random_string
+def handle_set_command(parsed_data):
+    arr_len = len(parsed_data)
+    if arr_len < 3:
+        return '-ERR wrong number of arguments for \'set\' command\r\n'
+    elif arr_len == 3:
+        expiration_dictionary.set(parsed_data[1], parsed_data[2], None)
+        return '+OK\r\n'
+    elif arr_len == 5:
+        expiration_dictionary.set(parsed_data[1], parsed_data[2], parsed_data[4])
+        return '+OK\r\n'
 
 
-ttl_dict = TTLDictionary()
-port_number = 6379
-replica = 'master'
-master_replid = generate_random_string(40)
-master_repl_offset = 0
+def handle_get_command(parsed_data):
+    value = expiration_dictionary.get(parsed_data[1])
+    if value:
+        return f'${len(value)}\r\n{value}\r\n'
+    else:
+        return '$-1\r\n'
+
+
+def handle_info_command(server_config):
+    data = f'role:{server_config.replica}\nmaster_replid:{server_config.master_replid}\nmaster_repl_offset:{server_config.master_repl_offset}\n'
+    return f'${len(data)}\r\n{data}\r\n'
+    # info_replica = f'role:{replica}'
+    # info_replid = f'master_replid:{master_replid}'
+    # info_offset = f'master_repl_offset:{master_repl_offset}'
+    # info = [f'${len(info_replica)}\r\n{info_replica}\r\n', f'${len(info_replid)}\r\n{info_replid}\r\n',
+    #         f'${len(info_offset)}\r\n{info_offset}\r\n']
+    # resp = f'*{len(info)}\r\n'
+    # for i in info:
+    #     resp += i
+
 
 if __name__ == "__main__":
+    config = ServerConfig()
     if '--port' in sys.argv or '-p' in sys.argv:
         port_index = sys.argv.index('--port')
-        port_number = int(sys.argv[port_index + 1])
+        config.port_number = int(sys.argv[port_index + 1])
     if '--replicaof' in sys.argv:
         replica_index = sys.argv.index('--replicaof')
-        replica = 'slave'
-    main()
+        config.replica = 'slave'
+    main(config)
