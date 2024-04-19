@@ -1,4 +1,6 @@
 import socket
+import time
+
 from app.RedisProtocolParser import parse_protocol
 from app.CustomDictionary import TTLDictionary
 from threading import Thread
@@ -22,6 +24,10 @@ class ServerConfig:
         characters = string.ascii_letters + string.digits
         random_string = ''.join(random.choice(characters) for _ in range(length))
         return random_string
+
+    # implement to string function
+    def __str__(self):
+        return f'port_number:{self.port_number}\nreplica:{self.replica}\nmaster_replid:{self.master_replid}\nmaster_repl_offset:{self.master_repl_offset}\nmaster_host:{self.master_host}\nmaster_port:{self.master_port}\nslave_hosts:{self.slave_hosts}'
 
 
 expiration_dictionary = TTLDictionary()
@@ -55,6 +61,9 @@ def connect_to_master_server(server_config):
         response = master_socket.recv(1024).decode("utf-8")
         print(response)
         master_socket.sendall(f'*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n'.encode("utf-8"))
+        response = master_socket.recv(1024).decode("utf-8")
+        print(response)
+        master_socket.sendall("*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n".encode("utf-8"))
         response = master_socket.recv(1024).decode("utf-8")
         print(response)
     # master_socket.sendall(f'REPLCONF capa psync2\r\n'.encode("utf-8"))
@@ -91,6 +100,15 @@ def process_command(parsed_data, server_config, client_sock):
         return handle_info_command(server_config)
     elif command == 'replconf':
         return handle_replica_command(parsed_data, server_config, client_sock)
+    elif command == 'psync':
+        return handle_psync_command(parsed_data, server_config)
+    else:
+        return '+skip\r\n'
+
+
+def handle_psync_command(parsed_data, server_config):
+    if parsed_data[1] == '?':
+        return f'+{server_config.master_replid} {server_config.master_repl_offset}\r\n'
     else:
         return '+skip\r\n'
 
@@ -98,17 +116,15 @@ def process_command(parsed_data, server_config, client_sock):
 def handle_replica_command(parsed_data, server_config, client_sock):
     if parsed_data[1] == 'listening-port':
         server_config.slave_hosts[client_sock.getpeername()[0]] = parsed_data[2]
-        print(server_config)
+        # print server_config dictionary
+        print(server_config.slave_hosts)
         return '+OK\r\n'
-    elif parsed_data[1] == 'capa':
+    elif parsed_data[0] == 'psync':
+        # send response +FULLRESYNC <REPL_ID> 0\r\n
+        return f'+FULLRESYNC {server_config.master_replid} 0\r\n'.encode("utf-8")
+    elif parsed_data[0] == 'ack':
         return '+OK\r\n'
-    elif parsed_data[1] == 'eof':
-        return '+OK\r\n'
-    elif parsed_data[1] == 'psync2':
-        return '+OK\r\n'
-    elif parsed_data[1] == 'ack':
-        return '+OK\r\n'
-    elif parsed_data[1] == 'getack':
+    elif parsed_data[0] == 'getack':
         return '+OK\r\n'
     else:
         return '+skip\r\n'
