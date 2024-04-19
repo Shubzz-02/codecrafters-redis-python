@@ -1,9 +1,10 @@
 # Uncomment this to pass the first stage
 import socket
 from app.RedisProtocolParser import parse_protocol
+from CustomDictionary import TTLDictionary
 from threading import Thread
 
-simple_map = {}
+ttl_dict = TTLDictionary()
 
 
 def main():
@@ -26,11 +27,21 @@ def handle_client(client_sock):
             resp = f'${len(parsed_data[1])}\r\n{parsed_data[1]}\r\n'
             client_sock.sendall(resp.encode("utf-8"))
         elif parsed_data[0].lower() == 'set':
-            simple_map[parsed_data[1]] = parsed_data[2]
-            resp = '+OK\r\n'
-            client_sock.sendall(resp.encode("utf-8"))
+            arr_len = len(parsed_data)
+            if arr_len < 3:
+                resp = '-ERR wrong number of arguments for \'set\' command\r\n'
+                client_sock.sendall(resp.encode("utf-8"))
+                continue
+            elif arr_len == 3:
+                ttl_dict.set(parsed_data[1], parsed_data[2], None)
+                resp = '+OK\r\n'
+                client_sock.sendall(resp.encode("utf-8"))
+            elif arr_len == 5:
+                ttl_dict.set(parsed_data[1], parsed_data[2], parsed_data[4])
+                resp = '+OK\r\n'
+                client_sock.sendall(resp.encode("utf-8"))
         elif parsed_data[0].lower() == 'get':
-            value = simple_map.get(parsed_data[1])
+            value = ttl_dict.get(parsed_data[1])
             if value:
                 resp = f'${len(value)}\r\n{value}\r\n'
             else:
