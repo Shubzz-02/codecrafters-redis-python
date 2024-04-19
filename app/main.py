@@ -15,6 +15,7 @@ class ServerConfig:
         self.master_repl_offset = 0
         self.master_host = 'localhost'
         self.master_port = 6379
+        self.slave_hosts = {}
 
     @staticmethod
     def generate_random_string(length):
@@ -48,8 +49,14 @@ def connect_to_master_server(server_config):
         exit(1)
     else:
         print('Successfully connected to master server')
-    # master_socket.sendall(f'REPLCONF listening-port {server_config.port_number}\r\n'.encode("utf-8"))
-    # master_socket.sendall(f'REPLCONF capa eof\r\n'.encode("utf-8"))
+        master_socket.sendall(
+            f'*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n${len(str(server_config.port_number))}\r\n{server_config.port_number}\r\n'
+            .encode("utf-8"))
+        response = master_socket.recv(1024).decode("utf-8")
+        print(response)
+        master_socket.sendall(f'*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n'.encode("utf-8"))
+        response = master_socket.recv(1024).decode("utf-8")
+        print(response)
     # master_socket.sendall(f'REPLCONF capa psync2\r\n'.encode("utf-8"))
     # master_socket.sendall(f'PSYNC {server_config.master_replid} {server_config.master_repl_offset}\r\n'.encode("utf-8"))
     # response = master_socket.recv(1024).decode("utf-8")
@@ -66,11 +73,11 @@ def handle_client(client_sock, server_config):
         if not data:
             continue
         parsed_data, remaining_data = parse_protocol(data)
-        response = process_command(parsed_data, server_config)
+        response = process_command(parsed_data, server_config, client_sock)
         client_sock.sendall(response.encode("utf-8"))
 
 
-def process_command(parsed_data, server_config):
+def process_command(parsed_data, server_config, client_sock):
     command = parsed_data[0].lower()
     if command == 'ping':
         return '+PONG\r\n'
@@ -82,6 +89,27 @@ def process_command(parsed_data, server_config):
         return handle_get_command(parsed_data)
     elif command == 'info':
         return handle_info_command(server_config)
+    elif command == 'replconf':
+        return handle_replica_command(parsed_data, server_config, client_sock)
+    else:
+        return '+skip\r\n'
+
+
+def handle_replica_command(parsed_data, server_config, client_sock):
+    if parsed_data[1] == 'listening-port':
+        server_config.slave_hosts[client_sock.getpeername()[0]] = parsed_data[2]
+        print(server_config)
+        return '+OK\r\n'
+    elif parsed_data[1] == 'capa':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'eof':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'psync2':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'ack':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'getack':
+        return '+OK\r\n'
     else:
         return '+skip\r\n'
 
