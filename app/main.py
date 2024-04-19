@@ -1,7 +1,7 @@
 # Uncomment this to pass the first stage
 import socket
 from app.RedisProtocolParser import parse_protocol
-from CustomDictionary import TTLDictionary
+from app.CustomDictionary import TTLDictionary
 from threading import Thread
 
 ttl_dict = TTLDictionary()
