@@ -49,15 +49,17 @@ def handle_client(client_sock):
                 resp = '$-1\r\n'
             client_sock.sendall(resp.encode("utf-8"))
         elif parsed_data[0].lower() == 'info':
-            info_replica = f'role:{replica}'
-            info_replid = f'master_replid:{master_replid}'
-            info_offset = f'master_repl_offset:{master_repl_offset}'
-            info = [f'${len(info_replica)}\r\n{info_replica}\r\n', f'${len(info_replid)}\r\n{info_replid}\r\n',
-                    f'${len(info_offset)}\r\n{info_offset}\r\n']
-            resp = f'*{len(info)}\r\n'
-            for i in info:
-                resp += i
+            data = f'role:{replica}\nmaster_replid:{master_replid}\nmaster_repl_offset:{master_repl_offset}\n'
+            resp = f'${len(data)}\r\n{data}\r\n'
             client_sock.sendall(resp.encode("utf-8"))
+            # info_replica = f'role:{replica}'
+            # info_replid = f'master_replid:{master_replid}'
+            # info_offset = f'master_repl_offset:{master_repl_offset}'
+            # info = [f'${len(info_replica)}\r\n{info_replica}\r\n', f'${len(info_replid)}\r\n{info_replid}\r\n',
+            #         f'${len(info_offset)}\r\n{info_offset}\r\n']
+            # resp = f'*{len(info)}\r\n'
+            # for i in info:
+            #     resp += i
         else:
             resp = '+skkep\r\n'
             client_sock.sendall(resp.encode("utf-8"))
