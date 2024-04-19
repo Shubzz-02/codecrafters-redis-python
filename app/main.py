@@ -48,6 +48,10 @@ def handle_client(client_sock):
             else:
                 resp = '$-1\r\n'
             client_sock.sendall(resp.encode("utf-8"))
+        elif parsed_data[0].lower() == 'info':
+            info = "role:master"
+            resp = f'${len(info)}\r\n{info}\r\n'
+            client_sock.sendall(resp.encode("utf-8"))
         else:
             resp = '+skkep\r\n'
             client_sock.sendall(resp.encode("utf-8"))
