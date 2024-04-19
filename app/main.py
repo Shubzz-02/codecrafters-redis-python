@@ -116,15 +116,17 @@ def handle_psync_command(parsed_data, server_config):
 def handle_replica_command(parsed_data, server_config, client_sock):
     if parsed_data[1] == 'listening-port':
         server_config.slave_hosts[client_sock.getpeername()[0]] = parsed_data[2]
-        # print server_config dictionary
-        print(server_config.slave_hosts)
+        print(server_config)
         return '+OK\r\n'
-    elif parsed_data[0] == 'psync':
-        # send response +FULLRESYNC <REPL_ID> 0\r\n
-        return f'+FULLRESYNC {server_config.master_replid} 0\r\n'.encode("utf-8")
-    elif parsed_data[0] == 'ack':
+    elif parsed_data[1] == 'capa':
         return '+OK\r\n'
-    elif parsed_data[0] == 'getack':
+    elif parsed_data[1] == 'eof':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'psync':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'ack':
+        return '+OK\r\n'
+    elif parsed_data[1] == 'getack':
         return '+OK\r\n'
     else:
         return '+skip\r\n'
