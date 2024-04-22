@@ -3,9 +3,6 @@
 # create function to return proper RESP data type as -> $5\r\nhello\r\n
 
 def resp_builder(marker, data):
-    if not data:
-        return None
-
     parser = RESPBuilderFactory.create_builder(marker)
     if parser:
         return parser.builder(data)
