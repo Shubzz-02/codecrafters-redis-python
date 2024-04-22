@@ -100,7 +100,7 @@ def process_command(parsed_data, server_config, client_sock):
     elif command == 'replconf':
         client_sock.sendall(handle_replica_command(parsed_data, server_config, client_sock).encode("utf-8"))
     elif command == 'psync':
-        # client_sock.sendall(handle_psync_command(parsed_data, server_config).encode("utf-8"))
+        client_sock.sendall(handle_psync_command(parsed_data, server_config).encode("utf-8"))
         # time.sleep(3)
         client_sock.sendall(send_rdb_file().encode("utf-8"))
     else:
@@ -116,10 +116,15 @@ def handle_psync_command(parsed_data, server_config):
 
 
 def send_rdb_file():
-    rdb_file = base64.b64decode(
-        "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
-    )
-    return resp_builder('$', rdb_file).removesuffix('\r\n')
+    RDB_64 = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+    RDB_FILE = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
+    rdb_bytes = base64.b64decode(RDB_64)
+    rdb_file = b"$" + (str(len(rdb_bytes))).encode() + b"\r\n" + rdb_bytes
+    return rdb_file
+    # rdb_file = base64.b64decode(
+    #     "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+    # )
+    # return resp_builder('$', rdb_file).removesuffix('\r\n')
 
 
 def handle_replica_command(parsed_data, server_config, client_sock):
