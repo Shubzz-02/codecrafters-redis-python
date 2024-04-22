@@ -1,8 +1,8 @@
 import socket
-import time
 
-from app.RedisProtocolParser import parse_protocol
+from app.utils.RedisProtocolParser import parse_protocol
 from app.CustomDictionary import TTLDictionary
+from app.utils.RESPMessageBuilder import resp_builder
 from threading import Thread
 import sys
 import random
@@ -86,9 +86,9 @@ def handle_client(client_sock, server_config):
 def process_command(parsed_data, server_config, client_sock):
     command = parsed_data[0].lower()
     if command == 'ping':
-        return '+PONG\r\n'
+        return resp_builder('+', 'PONG')
     elif command == 'echo':
-        return f'${len(parsed_data[1])}\r\n{parsed_data[1]}\r\n'
+        return resp_builder('$', parsed_data[1])
     elif command == 'set':
         return handle_set_command(parsed_data)
     elif command == 'get':
@@ -100,58 +100,63 @@ def process_command(parsed_data, server_config, client_sock):
     elif command == 'psync':
         return handle_psync_command(parsed_data, server_config)
     else:
-        return '+skip\r\n'
+        return resp_builder('+', 'skip')
 
 
 def handle_psync_command(parsed_data, server_config):
     if parsed_data[1] == '?':
-        return f'+FULLRESYNC {server_config.master_replid} {server_config.master_repl_offset}\r\n'
+        rdb_file = ('UkVESVMwMDEx'
+                    '+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP'
+                    '/wbjv+wP9aog==')
+        return resp_builder('+',
+                            f'FULLRESYNC {server_config.master_replid} {server_config.master_repl_offset}') + '\n' + \
+            resp_builder('$', rdb_file).removesuffix('\r\n')
     else:
-        return '+skip\r\n'
+        return resp_builder('+', 'skip')
 
 
 def handle_replica_command(parsed_data, server_config, client_sock):
     if parsed_data[1] == 'listening-port':
         server_config.slave_hosts[client_sock.getpeername()[0]] = parsed_data[2]
         print(server_config)
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     elif parsed_data[1] == 'capa':
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     elif parsed_data[1] == 'eof':
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     elif parsed_data[1] == 'psync':
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     elif parsed_data[1] == 'ack':
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     elif parsed_data[1] == 'getack':
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     else:
-        return '+skip\r\n'
+        return resp_builder('+', 'skip')
 
 
 def handle_set_command(parsed_data):
     arr_len = len(parsed_data)
-    if arr_len < 3:
-        return '-ERR wrong number of arguments for \'set\' command\r\n'
-    elif arr_len == 3:
+    if arr_len == 3:
         expiration_dictionary.set(parsed_data[1], parsed_data[2], None)
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
     elif arr_len == 5:
         expiration_dictionary.set(parsed_data[1], parsed_data[2], parsed_data[4])
-        return '+OK\r\n'
+        return resp_builder('+', 'OK')
+    else:
+        return resp_builder('-', 'ERR wrong number of arguments for \'set\' command')
 
 
 def handle_get_command(parsed_data):
     value = expiration_dictionary.get(parsed_data[1])
     if value:
-        return f'${len(value)}\r\n{value}\r\n'
+        return resp_builder('$', value)
     else:
-        return '$-1\r\n'
+        return resp_builder('$', None)
 
 
 def handle_info_command(server_config):
-    data = f'role:{server_config.replica}\nmaster_replid:{server_config.master_replid}\nmaster_repl_offset:{server_config.master_repl_offset}\n'
-    return f'${len(data)}\r\n{data}\r\n'
+    return resp_builder('$',
+                        f'role:{server_config.replica}\nmaster_replid:{server_config.master_replid}\nmaster_repl_offset:{server_config.master_repl_offset}\n')
     # info_replica = f'role:{replica}'
     # info_replid = f'master_replid:{master_replid}'
     # info_offset = f'master_repl_offset:{master_repl_offset}'
