@@ -100,7 +100,7 @@ def process_command(parsed_data, server_config, client_sock):
         client_sock.sendall(handle_replica_command(parsed_data, server_config, client_sock).encode("utf-8"))
     elif command == 'psync':
         client_sock.sendall(handle_psync_command(parsed_data, server_config).encode("utf-8"))
-        time.sleep(3)
+        # time.sleep(3)
         client_sock.sendall(send_rdb_file().encode("utf-8"))
     else:
         return resp_builder('+', 'skip')
