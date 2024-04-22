@@ -1,4 +1,5 @@
 import socket
+import time
 
 from app.utils.RedisProtocolParser import parse_protocol
 from app.CustomDictionary import TTLDictionary
@@ -79,40 +80,45 @@ def handle_client(client_sock, server_config):
         if not data:
             continue
         parsed_data, remaining_data = parse_protocol(data)
-        response = process_command(parsed_data, server_config, client_sock)
-        client_sock.sendall(response.encode("utf-8"))
+        process_command(parsed_data, server_config, client_sock)
+        # client_sock.sendall(response.encode("utf-8"))
 
 
 def process_command(parsed_data, server_config, client_sock):
     command = parsed_data[0].lower()
     if command == 'ping':
-        return resp_builder('+', 'PONG')
+        client_sock.sendall(resp_builder('+', 'PONG').encode("utf-8"))
     elif command == 'echo':
-        return resp_builder('$', parsed_data[1])
+        client_sock.sendall(resp_builder('$', parsed_data[1]).encode("utf-8"))
     elif command == 'set':
-        return handle_set_command(parsed_data)
+        client_sock.sendall(handle_set_command(parsed_data).encode("utf-8"))
     elif command == 'get':
-        return handle_get_command(parsed_data)
+        client_sock.sendall(handle_get_command(parsed_data).encode("utf-8"))
     elif command == 'info':
-        return handle_info_command(server_config)
+        client_sock.sendall(handle_info_command(server_config).encode("utf-8"))
     elif command == 'replconf':
-        return handle_replica_command(parsed_data, server_config, client_sock)
+        client_sock.sendall(handle_replica_command(parsed_data, server_config, client_sock).encode("utf-8"))
     elif command == 'psync':
-        return handle_psync_command(parsed_data, server_config)
+        client_sock.sendall(handle_psync_command(parsed_data, server_config).encode("utf-8"))
+        time.sleep(3)
+        client_sock.sendall(send_rdb_file().encode("utf-8"))
     else:
         return resp_builder('+', 'skip')
 
 
 def handle_psync_command(parsed_data, server_config):
     if parsed_data[1] == '?':
-        rdb_file = ('UkVESVMwMDEx'
-                    '+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP'
-                    '/wbjv+wP9aog==')
         return resp_builder('+',
-                            f'FULLRESYNC {server_config.master_replid} {server_config.master_repl_offset}') + '\n' + \
-            resp_builder('$', rdb_file).removesuffix('\r\n')
+                            f'FULLRESYNC {server_config.master_replid} {server_config.master_repl_offset}')
     else:
         return resp_builder('+', 'skip')
+
+
+def send_rdb_file():
+    rdb_file = ('UkVESVMwMDEx'
+                '+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP'
+                '/wbjv+wP9aog==')
+    return resp_builder('$', rdb_file).removesuffix('\r\n')
 
 
 def handle_replica_command(parsed_data, server_config, client_sock):
