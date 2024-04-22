@@ -1,3 +1,4 @@
+import base64
 import socket
 import time
 
@@ -115,9 +116,9 @@ def handle_psync_command(parsed_data, server_config):
 
 
 def send_rdb_file():
-    rdb_file = ('UkVESVMwMDEx'
-                '+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP'
-                '/wbjv+wP9aog==')
+    rdb_file = base64.b64decode(
+        "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog=="
+    )
     return resp_builder('$', rdb_file).removesuffix('\r\n')
 
 
